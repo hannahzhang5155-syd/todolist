@@ -17,6 +17,9 @@ const EMAIL_FROM = process.env.EMAIL_FROM || "明日清单 <onboarding@resend.de
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
 const APP_TOKEN = process.env.APP_TOKEN || "";
 const ENABLE_SCHEDULER = process.env.ENABLE_SCHEDULER !== "false";
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_STATE_ID = process.env.SUPABASE_STATE_ID || "default";
 
 const DEFAULT_STATE = {
   tasks: {},
@@ -80,15 +83,22 @@ function isAuthorized(request) {
 
 async function loadState() {
   await mkdir(DATA_DIR, { recursive: true });
+  if (isSupabaseConfigured()) {
+    try {
+      const stored = await loadStateFromSupabase();
+      if (stored) {
+        state = normalizeState(stored);
+        await writeLocalBackup();
+        return;
+      }
+    } catch (error) {
+      console.error("Unable to read Supabase state, using local backup:", error);
+    }
+  }
+
   try {
     const stored = JSON.parse(await readFile(DATA_FILE, "utf8"));
-    state = {
-      ...structuredClone(DEFAULT_STATE),
-      ...stored,
-      settings: { ...DEFAULT_STATE.settings, ...stored.settings },
-      tasks: stored.tasks || {},
-      emailLog: stored.emailLog || {},
-    };
+    state = normalizeState(stored);
   } catch (error) {
     if (error.code !== "ENOENT") console.error("Unable to read state:", error);
     await persistState();
@@ -97,9 +107,66 @@ async function loadState() {
 
 function persistState() {
   writeQueue = writeQueue
-    .then(() => writeFile(DATA_FILE, `${JSON.stringify(state, null, 2)}\n`))
+    .then(async () => {
+      await writeLocalBackup();
+      if (isSupabaseConfigured()) await saveStateToSupabase(state);
+    })
     .catch((error) => console.error("Unable to save state:", error));
   return writeQueue;
+}
+
+function normalizeState(stored = {}) {
+  return {
+    ...structuredClone(DEFAULT_STATE),
+    ...stored,
+    settings: { ...DEFAULT_STATE.settings, ...stored.settings },
+    tasks: stored.tasks || {},
+    emailLog: stored.emailLog || {},
+  };
+}
+
+function isSupabaseConfigured() {
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function supabaseHeaders(extra = {}) {
+  return {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    "Content-Type": "application/json",
+    ...extra,
+  };
+}
+
+async function loadStateFromSupabase() {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(SUPABASE_STATE_ID)}&select=state`,
+    { headers: supabaseHeaders() },
+  );
+  if (!response.ok) {
+    throw new Error(`Supabase read failed ${response.status}: ${await response.text()}`);
+  }
+  const rows = await response.json();
+  return rows[0]?.state || null;
+}
+
+async function saveStateToSupabase(nextState) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/app_state`, {
+    method: "POST",
+    headers: supabaseHeaders({ Prefer: "resolution=merge-duplicates" }),
+    body: JSON.stringify({
+      id: SUPABASE_STATE_ID,
+      state: nextState,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Supabase write failed ${response.status}: ${await response.text()}`);
+  }
+}
+
+function writeLocalBackup() {
+  return writeFile(DATA_FILE, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function sendJson(response, status, payload) {
@@ -341,6 +408,7 @@ const server = createServer(async (request, response) => {
         ok: true,
         timeZone: TIME_ZONE,
         emailConfigured: Boolean(RESEND_API_KEY),
+        databaseConfigured: isSupabaseConfigured(),
       });
       return;
     }
@@ -411,6 +479,7 @@ if (process.env.ENABLE_LISTEN !== "false") {
       console.log("RESEND_API_KEY is missing; email sends will run in preview mode.");
     }
     if (!APP_TOKEN) console.log("APP_TOKEN is missing; API access is not protected.");
+    console.log(`Database: ${isSupabaseConfigured() ? "Supabase" : "local file fallback"}`);
   });
 }
 
@@ -419,4 +488,12 @@ if (ENABLE_SCHEDULER) {
   setInterval(runScheduler, 30_000);
 }
 
-export { runScheduler, zonedParts, eveningEmail, morningEmail, sanitizeTasks, sanitizeTime };
+export {
+  runScheduler,
+  zonedParts,
+  eveningEmail,
+  morningEmail,
+  sanitizeTasks,
+  sanitizeTime,
+  normalizeState,
+};
