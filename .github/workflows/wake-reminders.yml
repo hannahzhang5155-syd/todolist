@@ -1,0 +1,18 @@
+name: Wake reminder service
+
+on:
+  schedule:
+    # 07:20 in Sydney, covering AEST (UTC+10) and AEDT (UTC+11)
+    - cron: "20 20 * * *"
+    - cron: "20 21 * * *"
+    # 21:50 in Sydney, covering AEST (UTC+10) and AEDT (UTC+11)
+    - cron: "50 10 * * *"
+    - cron: "50 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake Render before reminder time
+        run: curl --fail --retry 3 --retry-delay 15 --max-time 90 https://hannah-tomorrow-list.onrender.com/api/health
