@@ -1,4 +1,5 @@
 const STORAGE_KEY = "tomorrow-list:v1";
+const BACKUP_KEY = "tomorrow-list:backup";
 const TOKEN_KEY = "tomorrow-list:access-token";
 const DEFAULT_STATE = {
   tasks: {},
@@ -114,17 +115,40 @@ async function loadCloudState() {
     }
     if (!response.ok) throw new Error(`Load failed: ${response.status}`);
     const remote = await response.json();
-    state.tasks = remote.tasks || {};
+    const localTasks = state.tasks || {};
+    const remoteTasks = remote.tasks || {};
+    localStorage.setItem(
+      BACKUP_KEY,
+      JSON.stringify({ savedAt: new Date().toISOString(), tasks: localTasks }),
+    );
+    state.tasks = mergeTaskCollections(localTasks, remoteTasks);
     state.settings = { ...DEFAULT_STATE.settings, ...remote.settings };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     elements.notificationStatus.textContent = `${remote.recipient} · ${remote.timeZone}`;
     cloudReady = true;
     elements.saveStatus.textContent = "已连接云端，清单会自动同步";
+    if (JSON.stringify(state.tasks) !== JSON.stringify(remoteTasks)) {
+      scheduleCloudSync();
+    }
     renderSettings();
     render();
   } catch {
     elements.saveStatus.textContent = "离线模式：清单保存在这台设备上";
   }
+}
+
+function mergeTaskCollections(localTasks, remoteTasks) {
+  const dates = new Set([...Object.keys(localTasks || {}), ...Object.keys(remoteTasks || {})]);
+  return Object.fromEntries(
+    [...dates].map((date) => {
+      const merged = new Map();
+      for (const task of remoteTasks?.[date] || []) merged.set(task.id, task);
+      for (const task of localTasks?.[date] || []) {
+        if (!merged.has(task.id)) merged.set(task.id, task);
+      }
+      return [date, [...merged.values()]];
+    }),
+  );
 }
 
 function dateKey(date) {
