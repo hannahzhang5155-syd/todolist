@@ -1,4 +1,4 @@
-const CACHE_NAME = "tomorrow-list-v2";
+const CACHE_NAME = "tomorrow-list-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
