@@ -1,0 +1,14 @@
+{
+  "name": "tomorrow-list",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check app.js && node --check server.js && node --check sw.js",
+    "test": "ENABLE_LISTEN=false ENABLE_SCHEDULER=false node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
