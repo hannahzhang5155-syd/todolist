@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f1e8" />
+    <meta
+      name="description"
+      content="每天晚上写下明日计划，第二天早上收到清晰的今日待办。"
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>明日清单</title>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="明日清单首页">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M6.5 12.5 10 16l7.5-8" />
+            </svg>
+          </span>
+          <span>明日清单</span>
+        </a>
+
+        <div class="topbar-actions">
+          <button class="icon-button" id="settingsButton" type="button" aria-label="提醒设置" title="提醒设置">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.1.4.32.75.6 1 .3.25.68.4 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7.6Z" />
+            </svg>
+          </button>
+          <button class="install-button" id="installButton" type="button" hidden>安装应用</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="pageTitle">
+          <p class="eyebrow" id="currentDate"></p>
+          <h1 id="pageTitle">把明天，<br /><em>轻轻安排好。</em></h1>
+          <p class="intro-copy">
+            晚上写下要做的事，早上只看今天最重要的清单。
+          </p>
+        </section>
+
+        <section class="workspace" aria-label="待办清单">
+          <nav class="day-tabs" aria-label="选择日期">
+            <button class="day-tab" id="todayTab" type="button" data-view="today">
+              <span>今天</span>
+              <small id="todayLabel"></small>
+            </button>
+            <button class="day-tab active" id="tomorrowTab" type="button" data-view="tomorrow">
+              <span>明天</span>
+              <small id="tomorrowLabel"></small>
+            </button>
+          </nav>
+
+          <div class="list-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker" id="panelKicker">明日计划</p>
+                <h2 id="panelTitle">明天想完成什么？</h2>
+              </div>
+              <div class="progress-ring" id="progressRing" aria-label="完成进度">
+                <span id="progressText">0/0</span>
+              </div>
+            </div>
+
+            <form class="add-form" id="addForm">
+              <label class="sr-only" for="taskInput">添加待办事项</label>
+              <input
+                id="taskInput"
+                name="task"
+                type="text"
+                maxlength="120"
+                autocomplete="off"
+                placeholder="例如：上午完成项目提案"
+                required
+              />
+              <button type="submit" aria-label="添加待办">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+            </form>
+
+            <ul class="task-list" id="taskList" aria-live="polite"></ul>
+
+            <div class="empty-state" id="emptyState">
+              <span class="empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 32 32">
+                  <path d="M8 7.5h16M8 13.5h10M8 19.5h13M8 25.5h8" />
+                  <path d="m21 23 2.2 2.2L28 20.5" />
+                </svg>
+              </span>
+              <p id="emptyTitle">明天还是一张白纸</p>
+              <small id="emptyCopy">从一件最重要的事开始。</small>
+            </div>
+
+            <footer class="panel-footer">
+              <p id="saveStatus">正在连接云端…</p>
+              <button class="text-button" id="clearCompletedButton" type="button" hidden>
+                清除已完成
+              </button>
+            </footer>
+          </div>
+        </section>
+
+        <section class="ritual">
+          <div class="ritual-time">
+            <span class="sun sun-down" aria-hidden="true"></span>
+            <strong id="eveningTimeDisplay">22:00</strong>
+          </div>
+          <div>
+            <h2>晚间整理</h2>
+            <p>我会提醒你写下第二天的待办。</p>
+          </div>
+          <div class="ritual-divider" aria-hidden="true"></div>
+          <div class="ritual-time">
+            <span class="sun sun-up" aria-hidden="true"></span>
+            <strong id="morningTimeDisplay">07:30</strong>
+          </div>
+          <div>
+            <h2>晨间清单</h2>
+            <p>醒来后，今天要做什么一目了然。</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="settings-dialog" id="settingsDialog">
+      <form method="dialog" class="settings-card" id="settingsForm">
+        <div class="dialog-heading">
+          <div>
+            <p class="panel-kicker">每日节奏</p>
+            <h2>提醒设置</h2>
+          </div>
+          <button class="icon-button close-button" id="closeSettingsButton" type="button" aria-label="关闭设置">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <label class="setting-row">
+          <span>
+            <strong>晚上问我明天做什么</strong>
+            <small>到点后显示提醒</small>
+          </span>
+          <input id="eveningTime" type="time" value="22:00" />
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>早上发送今日清单</strong>
+            <small>通知中显示待办摘要</small>
+          </span>
+          <input id="morningTime" type="time" value="07:30" />
+        </label>
+
+        <div class="notification-box">
+          <span class="notification-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" />
+            </svg>
+          </span>
+          <div>
+            <strong>邮件提醒</strong>
+            <small id="notificationStatus">hannahzhang5155@gmail.com</small>
+          </div>
+          <button id="notificationButton" type="button">发送测试</button>
+        </div>
+
+        <button class="primary-button" id="saveSettingsButton" value="default">
+          保存设置
+        </button>
+        <p class="dialog-note">
+          邮件由云端发送，关闭网页后仍会按悉尼时间运行。
+        </p>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <template id="taskTemplate">
+      <li class="task-item">
+        <label class="task-check">
+          <input type="checkbox" />
+          <span class="custom-check" aria-hidden="true">
+            <svg viewBox="0 0 20 20">
+              <path d="m4 10 4 4 8-8" />
+            </svg>
+          </span>
+          <span class="task-text"></span>
+        </label>
+        <button class="delete-button" type="button" aria-label="删除待办" title="删除">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+          </svg>
+        </button>
+      </li>
+    </template>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
