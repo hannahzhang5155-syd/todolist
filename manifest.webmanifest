@@ -1,0 +1,19 @@
+{
+  "name": "明日清单",
+  "short_name": "明日清单",
+  "description": "每天晚上写下明日计划，第二天早上查看今日待办。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f1e8",
+  "theme_color": "#f5f1e8",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
