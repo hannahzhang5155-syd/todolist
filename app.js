@@ -20,6 +20,11 @@ if (urlToken) {
 }
 const accessToken = localStorage.getItem(TOKEN_KEY) || "";
 let activeView = initialUrl.searchParams.get("view") === "today" ? "today" : "tomorrow";
+const initialDate = parseDateKey(initialUrl.searchParams.get("date"));
+const dateOverrides = {
+  today: activeView === "today" ? initialDate : null,
+  tomorrow: activeView === "tomorrow" ? initialDate : null,
+};
 let deferredInstallPrompt = null;
 let toastTimer = null;
 let reminderTimer = null;
@@ -151,6 +156,13 @@ function mergeTaskCollections(localTasks, remoteTasks) {
   );
 }
 
+function parseDateKey(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return dateKey(date) === value ? date : null;
+}
+
 function dateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -159,6 +171,7 @@ function dateKey(date) {
 }
 
 function getDateForView(view) {
+  if (dateOverrides[view]) return new Date(dateOverrides[view]);
   const date = new Date();
   if (view === "tomorrow") date.setDate(date.getDate() + 1);
   return date;
