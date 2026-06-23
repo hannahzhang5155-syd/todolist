@@ -239,9 +239,10 @@ function tomorrowDateKey() {
   throw new Error("Unable to calculate tomorrow");
 }
 
-function appLink(view = "tomorrow") {
+function appLink(view = "tomorrow", date = "") {
   const url = new URL(APP_URL);
   url.searchParams.set("view", view);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) url.searchParams.set("date", date);
   if (APP_TOKEN) url.searchParams.set("token", APP_TOKEN);
   return url.toString();
 }
@@ -273,6 +274,7 @@ function emailLayout({ eyebrow, title, content, buttonLabel, buttonUrl }) {
 }
 
 function eveningEmail() {
+  const targetDate = tomorrowDateKey();
   return {
     subject: "今晚 10 点：明天想完成什么？",
     html: emailLayout({
@@ -281,7 +283,7 @@ function eveningEmail() {
       content:
         '<p style="margin:0;color:#65706b;font-size:16px;line-height:1.75">写下明天最重要的几件事。早上 7:30，我会把完整清单发回给你。</p>',
       buttonLabel: "填写明日待办",
-      buttonUrl: appLink("tomorrow"),
+      buttonUrl: appLink("tomorrow", targetDate),
     }),
   };
 }
@@ -301,7 +303,7 @@ function morningEmail(dateKey) {
       title: "早上好，这是你今天的清单。",
       content,
       buttonLabel: tasks.length ? "打开并完成清单" : "安排今天",
-      buttonUrl: appLink("today"),
+      buttonUrl: appLink("today", dateKey),
     }),
   };
 }
