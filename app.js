@@ -128,6 +128,7 @@ async function loadCloudState() {
     );
     state.tasks = mergeTaskCollections(localTasks, remoteTasks);
     state.settings = { ...DEFAULT_STATE.settings, ...remote.settings };
+    applyCarryoversFor(new Date());
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     elements.notificationStatus.textContent = `${remote.recipient} · ${remote.timeZone}`;
     cloudReady = true;
@@ -154,6 +155,42 @@ function mergeTaskCollections(localTasks, remoteTasks) {
       return [date, [...merged.values()]];
     }),
   );
+}
+
+function shiftDateKey(value, days) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function carryIncompleteTasks(sourceDateKey, targetDateKey) {
+  const sourceTasks = state.tasks[sourceDateKey] || [];
+  const targetTasks = state.tasks[targetDateKey] || [];
+  const incompleteSourceTasks = sourceTasks.filter((task) => !task.completed);
+  const incompleteSourceIds = new Set(incompleteSourceTasks.map((task) => task.id));
+  const nextTargetTasks = targetTasks.filter(
+    (task) => task.carriedFrom !== sourceDateKey || incompleteSourceIds.has(task.id),
+  );
+  const existingTargetIds = new Set(nextTargetTasks.map((task) => task.id));
+
+  for (const task of incompleteSourceTasks) {
+    if (!existingTargetIds.has(task.id)) {
+      nextTargetTasks.push({ ...task, completed: false, carriedFrom: sourceDateKey });
+    }
+  }
+
+  const changed = JSON.stringify(nextTargetTasks) !== JSON.stringify(targetTasks);
+  if (changed) state.tasks[targetDateKey] = nextTargetTasks;
+  return changed;
+}
+
+function applyCarryoversFor(date) {
+  const todayKey = dateKey(date);
+  const yesterdayKey = shiftDateKey(todayKey, -1);
+  const tomorrowKey = shiftDateKey(todayKey, 1);
+  const carriedToToday = carryIncompleteTasks(yesterdayKey, todayKey);
+  const carriedToTomorrow = carryIncompleteTasks(todayKey, tomorrowKey);
+  return carriedToToday || carriedToTomorrow;
 }
 
 function parseDateKey(value) {
@@ -186,7 +223,9 @@ function getTasks(view = activeView) {
 }
 
 function setTasks(tasks, view = activeView) {
-  state.tasks[dateKey(getDateForView(view))] = tasks;
+  const currentDateKey = dateKey(getDateForView(view));
+  state.tasks[currentDateKey] = tasks;
+  carryIncompleteTasks(currentDateKey, shiftDateKey(currentDateKey, 1));
   saveState();
 }
 
@@ -455,6 +494,7 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js"));
 }
 
+if (applyCarryoversFor(new Date())) saveState();
 updateDates();
 renderSettings();
 render();
