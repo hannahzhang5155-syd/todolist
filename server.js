@@ -197,6 +197,9 @@ function sanitizeTasks(tasks) {
           id: String(task.id || randomUUID()),
           text: String(task.text || "").trim().slice(0, 120),
           completed: Boolean(task.completed),
+          ...(typeof task.carriedFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(task.carriedFrom)
+            ? { carriedFrom: task.carriedFrom }
+            : {}),
         })).filter((task) => task.text),
       ]),
   );
@@ -221,6 +224,34 @@ function zonedParts(date = new Date()) {
     date: `${result.year}-${result.month}-${result.day}`,
     time: `${result.hour}:${result.minute}`,
   };
+}
+
+function shiftDateKey(dateKey, days) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function carryIncompleteTasksToDate(targetDateKey) {
+  const sourceDateKey = shiftDateKey(targetDateKey, -1);
+  const sourceTasks = state.tasks[sourceDateKey] || [];
+  const targetTasks = state.tasks[targetDateKey] || [];
+  const incompleteSourceTasks = sourceTasks.filter((task) => !task.completed);
+  const incompleteSourceIds = new Set(incompleteSourceTasks.map((task) => task.id));
+  const nextTargetTasks = targetTasks.filter(
+    (task) => task.carriedFrom !== sourceDateKey || incompleteSourceIds.has(task.id),
+  );
+  const existingTargetIds = new Set(nextTargetTasks.map((task) => task.id));
+
+  for (const task of incompleteSourceTasks) {
+    if (!existingTargetIds.has(task.id)) {
+      nextTargetTasks.push({ ...task, completed: false, carriedFrom: sourceDateKey });
+    }
+  }
+
+  const changed = JSON.stringify(nextTargetTasks) !== JSON.stringify(targetTasks);
+  if (changed) state.tasks[targetDateKey] = nextTargetTasks;
+  return changed;
 }
 
 function tomorrowDateKey() {
@@ -359,12 +390,13 @@ async function runScheduler(now = new Date()) {
       const eventTotal = eventHours * 60 + eventMinutes;
       const isDue = currentTotal >= eventTotal && currentTotal < eventTotal + 15;
       if (isDue && !state.emailLog[logKey]) {
+        const carriedTasks = event.type === "morning" && carryIncompleteTasksToDate(local.date);
         const result = await sendEmail(event.message());
         state.emailLog[logKey] = {
           sentAt: now.toISOString(),
           id: result.id || "preview",
         };
-        await persistState();
+        if (carriedTasks || state.emailLog[logKey]) await persistState();
         console.log(`Sent ${event.type} email to ${RECIPIENT_EMAIL}`);
       }
     }
@@ -422,6 +454,8 @@ const server = createServer(async (request, response) => {
       }
 
       if (request.method === "GET") {
+        const carriedTasks = carryIncompleteTasksToDate(zonedParts().date);
+        if (carriedTasks) await persistState();
         sendJson(response, 200, {
           tasks: state.tasks,
           settings: state.settings,
@@ -498,4 +532,6 @@ export {
   sanitizeTasks,
   sanitizeTime,
   normalizeState,
+  shiftDateKey,
+  carryIncompleteTasksToDate,
 };
