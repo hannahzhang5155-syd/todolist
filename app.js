@@ -150,11 +150,23 @@ function mergeTaskCollections(localTasks, remoteTasks) {
       const merged = new Map();
       for (const task of remoteTasks?.[date] || []) merged.set(task.id, task);
       for (const task of localTasks?.[date] || []) {
-        if (!merged.has(task.id)) merged.set(task.id, task);
+        const existing = merged.get(task.id);
+        merged.set(task.id, existing ? mergeTask(existing, task) : task);
       }
       return [date, [...merged.values()]];
     }),
   );
+}
+
+function mergeTask(left, right) {
+  return {
+    ...left,
+    ...right,
+    completed: Boolean(left.completed || right.completed),
+    ...(right.carriedFrom || left.carriedFrom
+      ? { carriedFrom: right.carriedFrom || left.carriedFrom }
+      : {}),
+  };
 }
 
 function shiftDateKey(value, days) {
