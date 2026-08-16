@@ -209,6 +209,27 @@ function sanitizeTime(value, fallback) {
   return /^\d{2}:\d{2}$/.test(value || "") ? value : fallback;
 }
 
+function mergeTasksPreservingCompletions(incomingTasks, existingTasks) {
+  const dates = new Set(Object.keys(incomingTasks || {}));
+  return Object.fromEntries(
+    [...dates].map((date) => {
+      const existingById = new Map((existingTasks?.[date] || []).map((task) => [task.id, task]));
+      const mergedTasks = (incomingTasks?.[date] || []).map((task) => {
+        const existing = existingById.get(task.id);
+        if (!existing) return task;
+        return {
+          ...task,
+          completed: Boolean(task.completed || existing.completed),
+          ...(task.carriedFrom || existing.carriedFrom
+            ? { carriedFrom: task.carriedFrom || existing.carriedFrom }
+            : {}),
+        };
+      });
+      return [date, mergedTasks];
+    }),
+  );
+}
+
 function zonedParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TIME_ZONE,
@@ -467,7 +488,7 @@ const server = createServer(async (request, response) => {
 
       if (request.method === "PUT") {
         const input = await readJson(request);
-        state.tasks = sanitizeTasks(input.tasks);
+        state.tasks = mergeTasksPreservingCompletions(sanitizeTasks(input.tasks), state.tasks);
         state.settings = {
           eveningTime: sanitizeTime(input.settings?.eveningTime, state.settings.eveningTime),
           morningTime: sanitizeTime(input.settings?.morningTime, state.settings.morningTime),
@@ -534,4 +555,5 @@ export {
   normalizeState,
   shiftDateKey,
   carryIncompleteTasksToDate,
+  mergeTasksPreservingCompletions,
 };
